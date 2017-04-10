@@ -29,32 +29,6 @@ def assign_value(values, box, value):
         assignments.append(values.copy())
     return values
 
-def naked_twins_new(values):
-    """Eliminate values using the naked twins strategy.
-    Args:
-        values(dict): a dictionary of the form {'box_name': '123456789', ...}
-
-    Returns:
-        the values dictionary with the naked twins eliminated from peers.
-    """
-    potential_twins = [box for box in values.keys() if len(values[box]) == 2]
-
-    naked_twins = [[box1,box2] for box1 in potential_twins \
-                    for box2 in peers[box1] \
-                    if set(values[box1])==set(values[box2]) ]
-    for i in range(len(naked_twins)):
-        box1 = naked_twins[i][0]
-        box2 = naked_twins[i][1]
-        peers1 = set(peers[box1])
-        peers2 = set(peers[box2])
-        peers_int = peers1 & peers2
-        for peer_val in peers_int:
-            if len(values[peer_val])>2:
-                for rm_val in values[box1]:
-                    #values[peer_val] = values[peer_val].replace(rm_val,'')
-                    values = assign_value(values, peer_val, values[peer_val].replace(rm_val,''))
-    return values
-
 def naked_twins(values):
     """Eliminate values using the naked twins strategy.
     Args:
