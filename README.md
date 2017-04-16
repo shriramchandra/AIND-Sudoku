@@ -3,11 +3,11 @@
 
 # Question 1 (Naked Twins)
 Q: How do we use constraint propagation to solve the naked twins problem?  
-A: *Student should provide answer here*
+A: In the naked twins problems, the peers of the boxes (with 2 possible values) are enforced a constraint that removes the values in the peers to not include the values of its associated pair from its domain. By introducing another restriction we had reduced the possible domains for each boxes. By reducing the domains for each box we can come closer to a solution that satisfies the constraint implied.
 
 # Question 2 (Diagonal Sudoku)
 Q: How do we use constraint propagation to solve the diagonal sudoku problem?  
-A: *Student should provide answer here*
+A: In the case of diagonal sudoku, we increase the constraint space by including the two diagonals. This adds the constraints to be applied for not only the peers of a given box but also to its peers along the diagonal space. By applying the constraint over the large space, we can minimize the search by reducing the domains over this extended space. 
 
 ### Install
 
