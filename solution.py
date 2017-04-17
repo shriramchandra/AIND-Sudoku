@@ -1,7 +1,9 @@
 import numpy as np
+import itertools
+import operator
 from operator import itemgetter
 from itertools import repeat
-import operator
+
 assignments = []
 diagonal_units=[]
 
@@ -141,14 +143,16 @@ def naked_twins(values):
     nakedTwinBoxes=[(box,uBox) for (box,unitBoxesList) in possibleTwinBox for unit in unitBoxesList for uBox in unit if(values[box] == values[uBox]) and (box !=uBox)]
     #Minimize the duplicates by removing exactly re-occuring tuples while the re-ordered copies of the tuple needs to be eliminted
     uniqueTwinsNonSorted=list(set(sorted(nakedTwinBoxes,key=operator.itemgetter(0,1))))
-    for boxPairs in uniqueTwinsNonSorted:
+    for boxPairs in set(uniqueTwinsNonSorted):
         box1 = boxPairs[0]
         box2 = boxPairs[1]
-        common_peers = set(peers[box1]).intersection(set(peers[box2]))
-        for peerBox in common_peers:
-            if len(values[peerBox]) > 2 and values[peerBox] != values[box1]:
+        twinPairBoxList=[box1,box2]
+        unitToRemoveTwin = [unit for unit in unitlist if set(twinPairBoxList) < set(unit)] #Find the units where both the twin boxes are co-located => determine the main set of  the subset of twin boxes
+        flattenedUnitToRemoveTwin = list(itertools.chain.from_iterable(unitToRemoveTwin)) #Flatten the list
+        for commonUnitBox in flattenedUnitToRemoveTwin:
+            if len(values[commonUnitBox]) > 2 :
                 for twinBoxVal in values[box1]:
-                    assign_value(values,peerBox,values[peerBox].replace(twinBoxVal,''))
+                    assign_value(values,commonUnitBox,values[commonUnitBox].replace(twinBoxVal,''))
     return values
 
 def reduce_puzzle(values):
@@ -212,8 +216,8 @@ def solve(grid):
 
 if __name__ == '__main__':
 
-    diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
-    #diag_sudoku_grid = '8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..'
+    #diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
+    diag_sudoku_grid = '8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..'
     #diag_sudoku_grid =  '...............9..97.3......1..6.5....47.8..2.....2..6.31..4......8..167.87......'
     solved_sudoku=solve(diag_sudoku_grid)
     display(solved_sudoku)
