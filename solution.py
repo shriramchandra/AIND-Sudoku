@@ -1,7 +1,11 @@
 import numpy as np
+import itertools
+import operator
 from operator import itemgetter
-assignments = []
+from itertools import repeat
 
+assignments = []
+diagonal_units=[]
 
 def cross(a, b):
     "Cross product of elements in A and elements in B."
@@ -9,15 +13,21 @@ def cross(a, b):
 
 rows = 'ABCDEFGHI'
 cols = '123456789'
-cols_rev = cols[::-1]
 boxes = cross(rows, cols)
 
 row_units = [cross(r, cols) for r in rows]
 column_units = [cross(rows, c) for c in cols]
 square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
-unitlist = row_units + column_units + square_units
-units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
-peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
+#Get the main diagonals ->Top left to bottom right
+mainDiagonal=[r+c for rowIndex,r in enumerate(rows) for colIndex,c in enumerate(cols) if(rowIndex == colIndex)]
+#Get the reverse diagonals -> Bottom left to top right
+reverseDiagonal=[r+c for rowIndex,r in enumerate(rows) for colIndex,c in enumerate(cols[::-1]) if(rowIndex == colIndex)]
+diagonal_units.append(mainDiagonal)
+diagonal_units.append(reverseDiagonal)
+
+unitlist = row_units + column_units + square_units+ diagonal_units #Add diagonal units thereby introducing new constraints into the environment
+units = dict((s, [u for u in unitlist if s in u]) for s in boxes) #Diagonal units needs to be added to the appropriate boxes
+peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes) #Peers now include diagonal boxes too
 
 def assign_value(values, box, value):
     """
@@ -27,36 +37,6 @@ def assign_value(values, box, value):
     values[box] = value
     if len(value) == 1:
         assignments.append(values.copy())
-    return values
-
-def naked_twins(values):
-    """Eliminate values using the naked twins strategy.
-    Args:
-        values(dict): a dictionary of the form {'box_name': '123456789', ...}
-
-    Returns:
-        the values dictionary with the naked twins eliminated from peers.
-    """
-    #print("Executing naked_twins")
-    #print("************Input Grid******************")
-    #display(values)
-    #print("*****************************************")
-    
-    possibleTwinBox=[(box,units[box]) for box in boxes if len(values[box]) == 2]
-    #Search for naked twins in all the units for the eligible box
-    nakedTwinBoxes=[(box,uBox) for (box,unitBoxesList) in possibleTwinBox for unit in unitBoxesList for uBox in unit if(values[box] == values[uBox]) and (box !=uBox)]
-    #uniqueTwins = set(x for l in nakedTwinsPeers for x in l)
-    #uniqueTwins = np.unique(nakedTwinBoxes)
-    uniqueTwinsNonSorted=list(set(sorted(nakedTwinBoxes,key=itemgetter(1))))
-    for boxPairs in uniqueTwinsNonSorted:
-        box1 = boxPairs[0]
-        box2 = boxPairs[1]
-        common_peers = set(peers[box1]) & (set(peers[box2]))
-        for peerBox in common_peers:
-            if len(values[peerBox]) > 2 :
-                for twinBoxVal in values[box1]:
-                    assign_value(values,peerBox,values[peerBox].replace(twinBoxVal,''))
-    
     return values
 
 def grid_values(grid):
@@ -98,15 +78,43 @@ def eliminate(values):
     # run through all the boxes, applying the eliminate technique,
     # and return the resulting sudoku in dictionary form.
     #print(values)
-
-    solved_values = [box for box in values.keys() if len(values[box]) == 1]
-
-    for solved_val in solved_values:
-        digit = values[solved_val]
-        peers_solv = peers[solved_val]
-        for peer in peers_solv:
-            #values[peer] = values[peer].replace(digit,'')
-            values = assign_value(values, peer, values[peer].replace(digit,''))
+    rowListIndexDict={'A':0,'B':1,'C':2,'D':3,'E':4,'F':5,'G':6,'H':7,'I':8}
+    singlesDict={}
+    for k, v in values.items():
+        if(len(v) == 1): #Consider only boxes with a single value
+            singlesDict[k] = v;
+    for k, v in singlesDict.items():
+            rowVal = k[0]
+            colVal = int(k[1])-1
+            #Eliminate the values from Square units
+            squareListToEliminate =[]
+            for subSquareLists in square_units:
+                if(k in subSquareLists):
+                    squareListToEliminate = subSquareLists
+                    break
+                
+            for squareCell in squareListToEliminate:
+                sqCellVal = values[squareCell]
+                if(len(sqCellVal) !=1):
+                    removedVal=sqCellVal.replace(v, "") 
+                    assign_value(values, squareCell, removedVal)
+                    
+            #Eliminate the values from the Row units
+            rowsToEliminate=row_units[rowListIndexDict[rowVal]]
+            for rowCell in rowsToEliminate:
+                rowCellVal = values[rowCell]
+                if(len(rowCellVal) !=1):
+                   removedVal=rowCellVal.replace(v, "") 
+                   assign_value(values, rowCell, removedVal)
+            
+            #Eliminate the values from Column units 
+            columnsToEliminate=column_units[colVal]
+            for columnCell in columnsToEliminate:
+                colCellVal = values[columnCell]
+                if(len(colCellVal) !=1):
+                   removedVal=colCellVal.replace(v, "") 
+                   assign_value(values, columnCell, removedVal)
+                   
     return values
 
 def only_choice(values):
@@ -118,10 +126,34 @@ def only_choice(values):
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
             if len(dplaces) == 1:
-                #values[dplaces[0]] = digit
                 values = assign_value(values, dplaces[0], digit)
     return values
 
+def naked_twins(values):
+    """Eliminate values using the naked twins strategy.
+    Args:
+        values(dict): a dictionary of the form {'box_name': '123456789', ...}
+
+    Returns:
+        the values dictionary with the naked twins eliminated from peers.
+    """
+    #Consider boxes that have a 2 digit value and associate it with its units
+    possibleTwinBox=[(box,units[box]) for box in boxes if len(values[box]) == 2]
+    #Search for naked twins in all the units for the eligible box
+    nakedTwinBoxes=[(box,uBox) for (box,unitBoxesList) in possibleTwinBox for unit in unitBoxesList for uBox in unit if(values[box] == values[uBox]) and (box !=uBox)]
+    #Minimize the duplicates by removing exactly re-occuring tuples while the re-ordered copies of the tuple needs to be eliminted
+    uniqueTwinsNonSorted=list(set(sorted(nakedTwinBoxes,key=operator.itemgetter(0,1))))
+    for boxPairs in set(uniqueTwinsNonSorted):
+        box1 = boxPairs[0]
+        box2 = boxPairs[1]
+        twinPairBoxList=[box1,box2]
+        unitToRemoveTwin = [unit for unit in unitlist if set(twinPairBoxList) < set(unit)] #Find the units where both the twin boxes are co-located => determine the main set of  the subset of twin boxes
+        flattenedUnitToRemoveTwin = list(itertools.chain.from_iterable(unitToRemoveTwin)) #Flatten the list
+        for commonUnitBox in flattenedUnitToRemoveTwin:
+            if len(values[commonUnitBox]) > 2 :
+                for twinBoxVal in values[box1]:
+                    assign_value(values,commonUnitBox,values[commonUnitBox].replace(twinBoxVal,''))
+    return values
 
 def reduce_puzzle(values):
     """
@@ -131,12 +163,15 @@ def reduce_puzzle(values):
     Input: A sudoku in dictionary form.
     Output: The resulting sudoku in dictionary form.
     """
-    solved_values = [box for box in values.keys() if len(values[box]) == 1]
+    #solved_values = [box for box in values.keys() if len(values[box]) == 1]
     stalled = False
     while not stalled:
         solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
+         # Your code here: Use the Eliminate Strategy
         eliminate(values)
+         # Your code here: Use the Only Choice Strategy
         only_choice(values)
+         # Your code here: Use the Naked Twins Strategy
         naked_twins(values)
 
         solved_values_after = len([box for box in values.keys() if len(values[box]) == 1])
@@ -182,10 +217,10 @@ def solve(grid):
 if __name__ == '__main__':
 
     #diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
-    #diag_sudoku_grid = '8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..'
-    diag_sudoku_grid =  '...............9..97.3......1..6.5....47.8..2.....2..6.31..4......8..167.87......'
-    values = grid_values(diag_sudoku_grid)
-    display(solve(diag_sudoku_grid))
+    diag_sudoku_grid = '8..........36......7..9.2...5...7.......457.....1...3...1....68..85...1..9....4..'
+    #diag_sudoku_grid =  '...............9..97.3......1..6.5....47.8..2.....2..6.31..4......8..167.87......'
+    solved_sudoku=solve(diag_sudoku_grid)
+    display(solved_sudoku)
 
     try:
         from visualize import visualize_assignments
